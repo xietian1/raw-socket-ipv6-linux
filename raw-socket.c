@@ -17,6 +17,7 @@
 //Perhaps these headers are more general
 #include <netinet/tcp.h>
 #include <netinet/ip.h>
+#include <netinet/ip6.h>
 
 //Data to be sent (appended at the end of the TCP header)
 #define DATA "datastring"
@@ -147,15 +148,13 @@ int main(int argc, char **argv) {
 	}
 
 
-
+/*
   //Populate address struct
+
   addr_in.sin6_family = AF_INET6;
   addr_in.sin6_port = htons(dstPort);
-  
-  
   addr_in.sin6_addr.s6_addr = inet_addr(dstIP);
 
-/*
   //Allocate mem for ip and tcp headers and zero the allocation
   memset(packet, 0, sizeof(packet));
   ipHdr = (struct iphdr *) packet;
@@ -166,12 +165,36 @@ int main(int argc, char **argv) {
 
   memset(packet, 0, sizeof(packet));
   ip6Hdr = (struct ip6_hdr *) packet;
-  tcpHdr = (struct tcphdr *) (packet + sizeof(struct iphdr6));
-  data = (char *) (packet + sizeof(struct iphdr6) + sizeof(struct tcphdr));
+  tcpHdr = (struct tcphdr *) (packet + sizeof(struct ip6_hdr));
+  data = (char *) (packet + sizeof(struct ip6_hdr) + sizeof(struct tcphdr));
   strcpy(data, DATA);
+
+  
+    //todo1: flow label may be different
+    //todo2: hop limit may be different
+	//todo3: Now ipv6 doesn't have checksum
+
+	/* IPv6 version (4 bits), Traffic class (8 bits), Flow label (20 bits) */
+	ip6Hdr->ip6_flow = htonl ((6 << 28) | (0 << 20) | 0); 
+
+    /* Next header (8 bits): 6 for TCP */ 
+    ip6Hdr->ip6_nxt = 6;
 	
+	/* Hop limit (8 bits): default to maximum value */
+	ip6Hdr->ip6_hops = 255;
+
+	/* Convert string to ip6 address */
+    struct sockaddr_in6 srcaddr, dstaddr;
+    //char str[INET_ADDRSTRLEN];
+	inet_pton(AF_INET6, srcIP, &(srcaddr.sin6_addr));
+	inet_pton(AF_INET6, dstIP, &(dstaddr.sin6_addr));
+
+	/* set src/dst address */
+	bcopy(&srcaddr.sin6_addr,&(ip6Hdr->ip6_src), 16);
+	bcopy(&dstaddr.sin6_addr,&(ip6Hdr->ip6_dst), 16);
 
 
+/*
   //Populate ipHdr
   ipHdr->ihl = 5; //5 x 32-bit words in the header
   ipHdr->version = 4; // ipv4
@@ -184,10 +207,10 @@ int main(int argc, char **argv) {
   ipHdr->check = 0; //16 bit checksum of IP header. Can't calculate at this point
   ipHdr->saddr = inet_addr(srcIP); //32 bit format of source address
   ipHdr->daddr = inet_addr(dstIP); //32 bit format of source address
-
+*/
   //Now we can calculate the check sum for the IP header check field
-  ipHdr->check = csum((unsigned short *) packet, ipHdr->tot_len); 
-  printf("IP header checksum: %d\n\n\n", ipHdr->check);
+  //ipHdr->check = csum((unsigned short *) packet, ipHdr->tot_len); 
+  //printf("IP header checksum: %d\n\n\n", ipHdr->check);
 
   //Populate tcpHdr
   tcpHdr->source = htons(srcPort); //16 bit in nbp format of source port
