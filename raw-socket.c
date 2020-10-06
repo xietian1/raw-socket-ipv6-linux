@@ -175,7 +175,7 @@ int main(int argc, char **argv) {
     exit(-1);
   }		
 
-
+/*
 	//bind to an interface
 	const char *opt;
 	opt = "ens33";
@@ -184,6 +184,15 @@ int main(int argc, char **argv) {
 		perror("Error2 while setting socket options");
         exit(-1);
 	}
+*/
+
+  int my_network_devices_scope_id = 2;
+  if(setsockopt(sock, IPPROTO_IPV6, IPV6_MULTICAST_IF, (char *)&my_network_devices_scope_id, sizeof(my_network_devices_scope_id)) < 0)
+   {
+       perror("Setting local interface error");
+       printf ("%d\n", errno);
+       exit(1);
+   }
 
 
 /*
@@ -266,7 +275,7 @@ int main(int argc, char **argv) {
   //ipHdr->check = csum((unsigned short *) packet, ipHdr->tot_len); 
   //printf("IP header checksum: %d\n\n\n", ipHdr->check);
 
-/*
+
   //Populate tcpHdr
   tcpHdr->source = htons(srcPort); //16 bit in nbp format of source port
   tcpHdr->dest = htons(dstPort); //16 bit in nbp format of destination port
@@ -274,8 +283,8 @@ int main(int argc, char **argv) {
   tcpHdr->ack_seq = 0x0; //32 bit ack sequence number, depends whether ACK is set or not
   tcpHdr->doff = 5; //4 bits: 5 x 32-bit words on tcp header
   tcpHdr->res1 = 0; //4 bits: Not used
-  tcpHdr->cwr = 0; //Congestion control mechanism
-  tcpHdr->ece = 0; //Congestion control mechanism
+  //tcpHdr->cwr = 0; //Congestion control mechanism
+  //tcpHdr->ece = 0; //Congestion control mechanism
   tcpHdr->urg = 0; //Urgent flag
   tcpHdr->ack = 0; //Acknownledge
   tcpHdr->psh = 0; //Push data immediately
@@ -285,7 +294,7 @@ int main(int argc, char **argv) {
   tcpHdr->window = htons(155);//0xFFFF; //16 bit max number of databytes 
   tcpHdr->check = 0; //16 bit check sum. Can't calculate at this point
   tcpHdr->urg_ptr = 0; //16 bit indicate the urgent data. Only if URG flag is set
-*/
+/*
   tcpHdr->th_sport = htons(srcPort);
   tcpHdr->th_dport = htons(dstPort);
   tcpHdr->th_seq = 0x0;
@@ -293,7 +302,7 @@ int main(int argc, char **argv) {
   tcpHdr->th_win = htons(155);
   tcpHdr->th_sum = 0;
   tcpHdr->urg_ptr = 0;
-  
+  */
 /*
   //Now we can calculate the checksum for the TCP header
   pTCPPacket.srcAddr = inet_addr(srcIP); //32 bit format of source address
@@ -348,8 +357,16 @@ int main(int argc, char **argv) {
       printf("Success! Sent %d bytes.\n", bytes);
     }
 */
+   
+   struct sockaddr_in6 multicastIP;
+   multicastIP.sin6_family   = AF_INET6;
+   multicastIP.sin6_scope_id = my_network_devices_scope_id;
+   //multicastIP.sin6_port     = htons(9999);  // destination port chosen at random
+   inet_pton(AF_INET6, "ff12::bead:cede:deed:feed", &multicastIP.sin6_addr.s6_addr);  
+
+
   int totallen = sizeof(struct ip6_hdr) + sizeof(struct tcphdr) + strlen(data);
-  if((bytes = sendto(sock, packet, totallen, 0, (struct sockaddr *) &addr_in, sizeof(addr_in))) < 0) {
+  if((bytes = sendto(sock, packet, totallen, 0, (struct sockaddr *) &multicastIP, sizeof(multicastIP))) < 0) {
       perror("Error on sendto()");
     }
     else {
