@@ -77,10 +77,10 @@ int main(int argc, char **argv) {
   int sock, bytes, one = 1;
 
   //struct iphdr *ipHdr;
+  /*define ipv6 header and tcp header struct*/
   struct ip6_hdr *ip6Hdr;
   struct tcphdr *tcpHdr;
 
-  
 
   //Setup
   //char *srcIP = "192.168.0.101";
@@ -212,6 +212,7 @@ int main(int argc, char **argv) {
   //ipHdr->check = csum((unsigned short *) packet, ipHdr->tot_len); 
   //printf("IP header checksum: %d\n\n\n", ipHdr->check);
 
+/*
   //Populate tcpHdr
   tcpHdr->source = htons(srcPort); //16 bit in nbp format of source port
   tcpHdr->dest = htons(dstPort); //16 bit in nbp format of destination port
@@ -219,8 +220,8 @@ int main(int argc, char **argv) {
   tcpHdr->ack_seq = 0x0; //32 bit ack sequence number, depends whether ACK is set or not
   tcpHdr->doff = 5; //4 bits: 5 x 32-bit words on tcp header
   tcpHdr->res1 = 0; //4 bits: Not used
-  //tcpHdr->cwr = 0; //Congestion control mechanism
-  //tcpHdr->ece = 0; //Congestion control mechanism
+  tcpHdr->cwr = 0; //Congestion control mechanism
+  tcpHdr->ece = 0; //Congestion control mechanism
   tcpHdr->urg = 0; //Urgent flag
   tcpHdr->ack = 0; //Acknownledge
   tcpHdr->psh = 0; //Push data immediately
@@ -230,7 +231,15 @@ int main(int argc, char **argv) {
   tcpHdr->window = htons(155);//0xFFFF; //16 bit max number of databytes 
   tcpHdr->check = 0; //16 bit check sum. Can't calculate at this point
   tcpHdr->urg_ptr = 0; //16 bit indicate the urgent data. Only if URG flag is set
-
+*/
+  tcpHdr->th_sport = htons(srcPort);
+  tcpHdr->th_dport = htons(dstPort);
+  tcpHdr->th_seq = 0x0;
+  tcpHdr->th_ack = 0x0;
+  tcpHdr->th_win = htons(155);
+  tcpHdr->check = 0;
+  tcpHdr->urg_ptr = 0;
+  
   //Now we can calculate the checksum for the TCP header
   pTCPPacket.srcAddr = inet_addr(srcIP); //32 bit format of source address
   pTCPPacket.dstAddr = inet_addr(dstIP); //32 bit format of source address
