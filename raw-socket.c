@@ -63,6 +63,47 @@ unsigned short csum(unsigned short *ptr,int nbytes) {
   return(answer);
 }
 
+typedef struct in6_addr in6_addr_t;
+
+uint16_t 
+tcp_checksum (const void *buff, size_t len, size_t length, in6_addr_t *src_addr, in6_addr_t *dest_addr) 	
+{
+  const uint16_t *buf=buff;
+  uint16_t *ip_src=(void *)src_addr, *ip_dst=(void *)dest_addr;
+  uint32_t sum;
+  int i  ;
+ 
+  // Calculate the sum
+  sum = 0;
+  while (len > 1) {
+    sum += *buf++;
+    if (sum & 0x80000000)
+      sum = (sum & 0xFFFF) + (sum >> 16);
+    len -= 2;
+    }
+  if ( len & 1 )
+    // Add the padding if the packet length is odd
+    sum += *((uint8_t *)buf);
+ 
+  // Add the pseudo-header
+  for (i = 0 ; i <= 7 ; ++i) 
+    sum += *(ip_src++);
+ 
+  for (i = 0 ; i <= 7 ; ++i) 
+    sum += *(ip_dst++);
+ 
+  sum += htons(IPPROTO_TCP);
+  sum += htons(length);
+ 
+  // Add the carries
+  while (sum >> 16)
+    sum = (sum & 0xFFFF) + (sum >> 16);
+ 
+  // Return the one's complement of sum
+  return((uint16_t)(~sum));
+}
+
+
 
 //Pseudo header needed for calculating the TCP header checksum
 struct pseudoTCPPacket {
@@ -100,9 +141,6 @@ int main(int argc, char **argv) {
 
   //Ethernet header + IP header + TCP header + data
   char packet[512];
-
-  //Address struct to sendto()
-  struct sockaddr_in6 addr_in;
 
   //Pseudo TCP header to calculate the TCP header's checksum
   struct pseudoTCPPacket pTCPPacket;
@@ -163,12 +201,15 @@ int main(int argc, char **argv) {
   strcpy(data, DATA);
 */
 
+
   memset(packet, 0, sizeof(packet));
   ip6Hdr = (struct ip6_hdr *) packet;
   tcpHdr = (struct tcphdr *) (packet + sizeof(struct ip6_hdr));
   data = (char *) (packet + sizeof(struct ip6_hdr) + sizeof(struct tcphdr));
   strcpy(data, DATA);
 
+  struct ip6_hdr *o_iphdr ;
+  o_iphdr = (struct ip6_hdr *)(data);
   
     //todo1: flow label may be different
     //todo2: hop limit may be different
@@ -176,6 +217,10 @@ int main(int argc, char **argv) {
 
 	/* IPv6 version (4 bits), Traffic class (8 bits), Flow label (20 bits) */
 	ip6Hdr->ip6_flow = htonl ((6 << 28) | (0 << 20) | 0); 
+
+    /*set payload length*/
+    ip6Hdr->ip6_plen = o_iphdr->ip6_plen;
+
 
     /* Next header (8 bits): 6 for TCP */ 
     ip6Hdr->ip6_nxt = 6;
@@ -192,6 +237,15 @@ int main(int argc, char **argv) {
 	/* set src/dst address */
 	bcopy(&srcaddr.sin6_addr,&(ip6Hdr->ip6_src), 16);
 	bcopy(&dstaddr.sin6_addr,&(ip6Hdr->ip6_dst), 16);
+   
+
+      //Address struct to sendto()
+	  struct sockaddr_in6 addr_in;
+
+	  addr_in.sin6_family = AF_INET6;
+	  addr_in.sin6_port = htons(dstPort);
+	  //addr_in.sin6_addr.s6_addr = inet_addr(dstIP);
+
 
 
 /*
@@ -237,15 +291,24 @@ int main(int argc, char **argv) {
   tcpHdr->th_seq = 0x0;
   tcpHdr->th_ack = 0x0;
   tcpHdr->th_win = htons(155);
-  tcpHdr->check = 0;
+  tcpHdr->th_sum = 0;
   tcpHdr->urg_ptr = 0;
   
+/*
   //Now we can calculate the checksum for the TCP header
   pTCPPacket.srcAddr = inet_addr(srcIP); //32 bit format of source address
   pTCPPacket.dstAddr = inet_addr(dstIP); //32 bit format of source address
   pTCPPacket.zero = 0; //8 bit always zero
   pTCPPacket.protocol = IPPROTO_TCP; //8 bit TCP protocol
   pTCPPacket.TCP_len = htons(sizeof(struct tcphdr) + strlen(data)); // 16 bit length of TCP header
+*/
+
+
+  pTCPPacket.srcAddr = (uint32_t)atoi(srcaddr.sin6_addr.s6_addr);
+  pTCPPacket.dstAddr = (uint32_t)atoi(dstaddr.sin6_addr.s6_addr);
+  pTCPPacket.zero = 0; //8 bit always zero
+  pTCPPacket.protocol = IPPROTO_TCP;
+  pTCPPacket.TCP_len = htons(sizeof(struct tcphdr) + strlen(data));
 
   //Populate the pseudo packet
   pseudo_packet = (char *) malloc((int) (sizeof(struct pseudoTCPPacket) + sizeof(struct tcphdr) + strlen(data)));
@@ -253,40 +316,54 @@ int main(int argc, char **argv) {
 
   //Copy pseudo header
   memcpy(pseudo_packet, (char *) &pTCPPacket, sizeof(struct pseudoTCPPacket));
- 
+
+
+   
+
+
+
   //Send lots of packets
-  while(1) { 
+  //while(1) { 
     //Try to gyess TCP seq
     tcpHdr->seq = htonl(initSeqGuess++);
 
     //Calculate check sum: zero current check, copy TCP header + data to pseudo TCP packet, update check
-    tcpHdr->check = 0;
+    tcpHdr->th_sum = 0;
 
     //Copy tcp header + data to fake TCP header for checksum
     memcpy(pseudo_packet + sizeof(struct pseudoTCPPacket), tcpHdr, sizeof(struct tcphdr) + strlen(data));
 
     //Set the TCP header's check field
-    tcpHdr->check = (csum((unsigned short *) pseudo_packet, (int) (sizeof(struct pseudoTCPPacket) + 
+    tcpHdr->th_sum = (csum((unsigned short *) pseudo_packet, (int) (sizeof(struct pseudoTCPPacket) + 
           sizeof(struct tcphdr) +  strlen(data))));
 
     printf("TCP Checksum: %d\n", (int) tcpHdr->check);
 
     //Finally, send packet
+/*
     if((bytes = sendto(sock, packet, ipHdr->tot_len, 0, (struct sockaddr *) &addr_in, sizeof(addr_in))) < 0) {
       perror("Error on sendto()");
     }
     else {
       printf("Success! Sent %d bytes.\n", bytes);
     }
+*/
+  int totallen = sizeof(struct ip6_hdr) + sizeof(struct tcphdr) + strlen(data);
+  if((bytes = sendto(sock, packet, totallen, 0, (struct sockaddr *) &addr_in, sizeof(addr_in))) < 0) {
+      perror("Error on sendto()");
+    }
+    else {
+      printf("Success! Sent %d bytes.\n", bytes);
+    }
+
 
     printf("SEQ guess: %u\n\n", initSeqGuess);
 
-    //I'll sleep when I'm dead
     //sleep(1);
 
     //Comment out this break to unleash the beast
-    break;
-  }
+    //break;
+  //}
   
   return 0;
 }
