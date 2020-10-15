@@ -19,20 +19,24 @@ ip xfrm policy add src 192.168.1.17 dst 192.168.1.19 dir in tmpl src 30001 dst 3
 ip xfrm policy add src 192.168.1.19 dst 192.168.1.17 dir out tmpl src 30000 dst 30001 proto esp mode tunnel
 
 ###############
-ip xfrm state add src fe80::6823:112d:c4c1:596d dst fe80::39df:fe88:9b43:162f proto esp spi 0x00004005 reqid 1 mode transport auth md5 0xa87ff679a2f3e71d9181a67b7542122c enc des 0xa2f3e71d9181a67b
-ip xfrm state add src fe80::39df:fe88:9b43:162f dst fe80::6823:112d:c4c1:596d proto esp spi 0x00005004 reqid 2 mode transport auth md5 0xa87ff679a2f3e71d9181a67b7542122c enc des 0xa2f3e71d9181a67b
+ip xfrm state add src 2001:da8:e000::1:1:1 dst 2001:da8:e000::1:1:2 proto esp spi 0x00004005 reqid 1 mode transport auth md5 0xa87ff679a2f3e71d9181a67b7542122c enc des 0xa2f3e71d9181a67b
+ip xfrm state add src 2001:da8:e000::1:1:2 dst 2001:da8:e000::1:1:1 proto esp spi 0x00005004 reqid 2 mode transport auth md5 0xa87ff679a2f3e71d9181a67b7542122c enc des 0xa2f3e71d9181a67b
 
 
 lede ipv6
-ip xfrm policy add src fe80::6823:112d:c4c1:596d dst fe80::39df:fe88:9b43:162f sport 3000 dport 30000 dir in tmpl src :: dst :: proto esp reqid 1 mode transport
-ip xfrm policy add src fe80::39df:fe88:9b43:162f dst fe80::6823:112d:c4c1:596d sport 30000 dport 3000 dir out tmpl src :: dst :: proto esp reqid 2 mode transport
+ip xfrm policy add src 2001:da8:e000::1:1:2 dst 2001:da8:e000::1:1:1 sport 3000 dport 30000 dir in tmpl src :: dst :: proto esp reqid 2 mode transport
+ip xfrm policy add src 2001:da8:e000::1:1:1 dst 2001:da8:e000::1:1:2 sport 30000 dport 3000 dir out tmpl src :: dst :: proto esp reqid 1 mode transport
 
-ip xfrm policy add src fe80::6823:112d:c4c1:596d dst fe80::39df:fe88:9b43:162f dir out tmpl src :: dst :: proto esp reqid 1 mode transport
-ip xfrm policy add src fe80::39df:fe88:9b43:162f dst fe80::6823:112d:c4c1:596d dir in tmpl src :: dst :: proto esp reqid 2 mode transport
+ip xfrm policy add src 2001:da8:e000::1:1:2 dst 2001:da8:e000::1:1:1 dir in tmpl src :: dst :: proto esp reqid 2 mode transport
+ip xfrm policy add src 2001:da8:e000::1:1:1 dst 2001:da8:e000::1:1:2 dir out tmpl src :: dst :: proto esp reqid 1 mode transport
 
 ubuntu ipv6
-ip xfrm policy add src fe80::6823:112d:c4c1:596d dst fe80::39df:fe88:9b43:162f sport 3000 dport 30000 dir out tmpl src :: dst :: proto esp reqid 1 mode transport
-ip xfrm policy add src fe80::39df:fe88:9b43:162f dst fe80::6823:112d:c4c1:596d sport 30000 dport 3000 dir in tmpl src :: dst :: proto esp reqid 2 mode transport
+ip xfrm policy add src 2001:da8:e000::1:1:2 dst 2001:da8:e000::1:1:1 sport 3000 dport 30000 dir out tmpl src :: dst :: proto esp reqid 2 mode transport
+ip xfrm policy add src 2001:da8:e000::1:1:1 dst 2001:da8:e000::1:1:2 sport 30000 dport 3000 dir in tmpl src :: dst :: proto esp reqid 1 mode transport
+
+
+ip xfrm policy add src 2001:da8:e000::1:1:2 dst 2001:da8:e000::1:1:1 dir in tmpl src :: dst :: proto esp reqid 2 mode transport
+ip xfrm policy add src 2001:da8:e000::1:1:1 dst 2001:da8:e000::1:1:2 dir out tmpl src :: dst :: proto esp reqid 1 mode transport
 
 ###############
 
