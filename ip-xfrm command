@@ -1,3 +1,9 @@
+############
+check interface id:
+
+ip link show
+
+###############
 ip xfrm state add src 192.168.1.17 dst 192.168.1.19 proto esp spi 0x00004005 mode tunnel auth md5 0xa87ff679a2f3e71d9181a67b7542122c enc des 0xa2f3e71d9181a67b
 ip xfrm state add src 192.168.1.19 dst 192.168.1.17 proto esp spi 0x00005004 mode tunnel auth md5 0xa87ff679a2f3e71d9181a67b7542122c enc des 0xa2f3e71d9181a67b
 

@@ -21,159 +21,165 @@
 
 //Data to be sent (appended at the end of the TCP header)
 #define DATA "datastring"
+#define ETH_HDRLEN 14
 
 //Debug function: dump 'index' bytes beginning at 'buffer'
 void hexdump(unsigned char *buffer, unsigned long index) {
-  unsigned long i;
-  printf("hexdump on address %p:\n", buffer);
-  for (i=0;i<index;i++)
-  {
-    printf("%02x ",buffer[i]);
-  }
-  printf("\n");
+    unsigned long i;
+    printf("hexdump on address %p:\n", buffer);
+    for (i=0;i<index;i++)
+    {
+        printf("%02x ",buffer[i]);
+    }
+    printf("\n");
 }
 
 //Calculate the TCP header checksum of a string (as specified in rfc793)
 //Function from http://www.binarytides.com/raw-sockets-c-code-on-linux/
 unsigned short csum(unsigned short *ptr,int nbytes) {
-  long sum;
-  unsigned short oddbyte;
-  short answer;
+    long sum;
+    unsigned short oddbyte;
+    short answer;
 
-  //Debug info
-  //hexdump((unsigned char *) ptr, nbytes);
-  //printf("csum nbytes: %d\n", nbytes);
-  //printf("csum ptr address: %p\n", ptr);
+    //Debug info
+    //hexdump((unsigned char *) ptr, nbytes);
+    //printf("csum nbytes: %d\n", nbytes);
+    //printf("csum ptr address: %p\n", ptr);
 
-  sum=0;
-  while(nbytes>1) {
-    sum+=*ptr++;
-    nbytes-=2;
-  }
-  if(nbytes==1) {
-    oddbyte=0;
-    *((u_char*)&oddbyte)=*(u_char*)ptr;
-    sum+=oddbyte;
-  }
+    sum=0;
+    while(nbytes>1) {
+        sum+=*ptr++;
+        nbytes-=2;
+    }
+    if(nbytes==1) {
+        oddbyte=0;
+        *((u_char*)&oddbyte)=*(u_char*)ptr;
+        sum+=oddbyte;
+    }
 
-  sum = (sum>>16)+(sum & 0xffff);
-  sum = sum + (sum>>16);
-  answer=(short)~sum;
+    sum = (sum>>16)+(sum & 0xffff);
+    sum = sum + (sum>>16);
+    answer=(short)~sum;
 
-  return(answer);
+    return(answer);
 }
 
 typedef struct in6_addr in6_addr_t;
 
-uint16_t 
-tcp_checksum (const void *buff, size_t len, size_t length, in6_addr_t *src_addr, in6_addr_t *dest_addr) 	
+uint16_t
+tcp_checksum (const void *buff, size_t len, size_t length, in6_addr_t *src_addr, in6_addr_t *dest_addr)
 {
-  const uint16_t *buf=buff;
-  uint16_t *ip_src=(void *)src_addr, *ip_dst=(void *)dest_addr;
-  uint32_t sum;
-  int i  ;
- 
-  // Calculate the sum
-  sum = 0;
-  while (len > 1) {
-    sum += *buf++;
-    if (sum & 0x80000000)
-      sum = (sum & 0xFFFF) + (sum >> 16);
-    len -= 2;
+    const uint16_t *buf=buff;
+    uint16_t *ip_src=(void *)src_addr, *ip_dst=(void *)dest_addr;
+    uint32_t sum;
+    int i  ;
+
+    // Calculate the sum
+    sum = 0;
+    while (len > 1) {
+        sum += *buf++;
+        if (sum & 0x80000000)
+            sum = (sum & 0xFFFF) + (sum >> 16);
+        len -= 2;
     }
-  if ( len & 1 )
-    // Add the padding if the packet length is odd
-    sum += *((uint8_t *)buf);
- 
-  // Add the pseudo-header
-  for (i = 0 ; i <= 7 ; ++i) 
-    sum += *(ip_src++);
- 
-  for (i = 0 ; i <= 7 ; ++i) 
-    sum += *(ip_dst++);
- 
-  sum += htons(IPPROTO_TCP);
-  sum += htons(length);
- 
-  // Add the carries
-  while (sum >> 16)
-    sum = (sum & 0xFFFF) + (sum >> 16);
- 
-  // Return the one's complement of sum
-  return((uint16_t)(~sum));
+    if ( len & 1 )
+        // Add the padding if the packet length is odd
+        sum += *((uint8_t *)buf);
+
+    // Add the pseudo-header
+    for (i = 0 ; i <= 7 ; ++i)
+        sum += *(ip_src++);
+
+    for (i = 0 ; i <= 7 ; ++i)
+        sum += *(ip_dst++);
+
+    sum += htons(IPPROTO_TCP);
+    sum += htons(length);
+
+    // Add the carries
+    while (sum >> 16)
+        sum = (sum & 0xFFFF) + (sum >> 16);
+
+    // Return the one's complement of sum
+    return((uint16_t)(~sum));
 }
 
 
 
 //Pseudo header needed for calculating the TCP header checksum
 struct pseudoTCPPacket {
-  uint32_t srcAddr;
-  uint32_t dstAddr;
-  uint8_t zero;
-  uint8_t protocol;
-  uint16_t TCP_len;
+    uint32_t srcAddr;
+    uint32_t dstAddr;
+    uint8_t zero;
+    uint8_t protocol;
+    uint16_t TCP_len;
 };
 
 int main(int argc, char **argv) {
-  int sock, bytes, one = 1;
+    int sock, bytes, one = 1;
 
-  //struct iphdr *ipHdr;
-  /*define ipv6 header and tcp header struct*/
-  struct ip6_hdr *ip6Hdr;
-  struct tcphdr *tcpHdr;
+    //struct iphdr *ipHdr;
+    /*define ipv6 header and tcp header struct*/
+    struct ip6_hdr *ip6Hdr;
+    struct tcphdr *tcpHdr;
 
 
-  //Setup
-  //char *srcIP = "192.168.0.101";
-  //char *dstIP = "192.168.0.105";
-  
-  char *srcIP = "2600:380:5c94:6ef:a8e5:9c8d:e92a:44a3";
-  char *dstIP = "2001:1890:1f8:211f::1:2";
+    //Setup
+    //char *srcIP = "192.168.0.101";
+    //char *dstIP = "192.168.0.105";
 
-  int dstPort = 30000;
-  int srcPort = 30001;
+    //char *srcIP = "2600:380:5ef9:dab6:7476:58e6:c7e0:fc5b";
+    //char *dstIP = "2001:1890:1f8:211e::1:2";
+	char *srcIP = "fe80::39df:fe88:9b43:162f";
+	char *dstIP = "fe80::6823:112d:c4c1:596d";
+	//check the following id by ip_link_show
+	int my_network_devices_scope_id = 2;
 
-  //Initial guess for the SEQ field of the TCP header
-  uint32_t initSeqGuess = 1138083240;
+    //int dstPort = 6000;
+    //int srcPort = 6401;
 
-  //Data to be appended at the end of the tcp header
-  char *data;
+    int dstPort = 30000;
+    int srcPort = 30001;
 
-  //Ethernet header + IP header + TCP header + data
-  char packet[512];
+    //Initial guess for the SEQ field of the TCP header
+    uint32_t initSeqGuess = 1138083240;
 
-  //Pseudo TCP header to calculate the TCP header's checksum
-  struct pseudoTCPPacket pTCPPacket;
+    //Data to be appended at the end of the tcp header
+    char *data;
 
-  //Pseudo TCP Header + TCP Header + data
-  char *pseudo_packet;
-  
+    //Ethernet header + IP header + TCP header + data
+    char packet[512];
+
+    //Pseudo TCP header to calculate the TCP header's checksum
+    struct pseudoTCPPacket pTCPPacket;
+
+    //Pseudo TCP Header + TCP Header + data
+    char *pseudo_packet;
+
 /*
   //Raw socket without any protocol-header inside
   if((sock = socket(PF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
     perror("Error while creating socket");
     exit(-1);
   }
-
   //Set option IP_HDRINCL (headers are included in packet)
   if(setsockopt(sock, IPPROTO_IP, IP_HDRINCL, (char *)&one, sizeof(one)) < 0) {
     perror("Error while setting socket options");
     exit(-1);
   }
-
 */
 
-  //ipv6 raw socket without any protocol-header inside
-  if((sock = socket(AF_INET6, SOCK_RAW, IPPROTO_RAW)) < 0) {
-    perror("Error while creating socket");
-    exit(-1);
-  }
+    //ipv6 raw socket without any protocol-header inside
+    if((sock = socket(AF_INET6, SOCK_RAW, IPPROTO_RAW)) < 0) {
+        perror("Error while creating socket");
+        exit(-1);
+    }
 
-  //Set ipv6 option IP_HDRINCL (headers are included in packet)
-  if(setsockopt(sock, IPPROTO_IPV6, IP_HDRINCL, (char *)&one, sizeof(one)) < 0) {
-    perror("Error while setting socket options");
-    exit(-1);
-  }		
+    //Set ipv6 option IP_HDRINCL (headers are included in packet)
+    if(setsockopt(sock, IPPROTO_IPV6, IP_HDRINCL, (char *)&one, sizeof(one)) < 0) {
+        perror("Error while setting socket options");
+        exit(-1);
+    }
 
 /*
 	//bind to an interface
@@ -186,22 +192,20 @@ int main(int argc, char **argv) {
 	}
 */
 
-  int my_network_devices_scope_id = 2;
-  if(setsockopt(sock, IPPROTO_IPV6, IPV6_MULTICAST_IF, (char *)&my_network_devices_scope_id, sizeof(my_network_devices_scope_id)) < 0)
-   {
-       perror("Setting local interface error");
-       printf ("%d\n", errno);
-       exit(1);
-   }
+    
+    if(setsockopt(sock, IPPROTO_IPV6, IPV6_MULTICAST_IF, (char *)&my_network_devices_scope_id, sizeof(my_network_devices_scope_id)) < 0)
+    {
+        perror("Setting local interface error");
+        printf ("%d\n", errno);
+        exit(1);
+    }
 
 
 /*
   //Populate address struct
-
   addr_in.sin6_family = AF_INET6;
   addr_in.sin6_port = htons(dstPort);
   addr_in.sin6_addr.s6_addr = inet_addr(dstIP);
-
   //Allocate mem for ip and tcp headers and zero the allocation
   memset(packet, 0, sizeof(packet));
   ipHdr = (struct iphdr *) packet;
@@ -211,49 +215,50 @@ int main(int argc, char **argv) {
 */
 
 
-  memset(packet, 0, sizeof(packet));
-  ip6Hdr = (struct ip6_hdr *) packet;
-  tcpHdr = (struct tcphdr *) (packet + sizeof(struct ip6_hdr));
-  data = (char *) (packet + sizeof(struct ip6_hdr) + sizeof(struct tcphdr));
-  strcpy(data, DATA);
+    memset(packet, 0, sizeof(packet));
+    ip6Hdr = (struct ip6_hdr *) packet;
+    tcpHdr = (struct tcphdr *) (packet + sizeof(struct ip6_hdr));
+    data = (char *) (packet + sizeof(struct ip6_hdr) + sizeof(struct tcphdr));
+    strcpy(data, DATA);
 
-  struct ip6_hdr *o_iphdr ;
-  o_iphdr = (struct ip6_hdr *)(data);
-  
+    u_char *packetdata = DATA;
+    struct ip6_hdr *o_iphdr ;
+    o_iphdr = (struct ip6_hdr *)(packetdata + ETH_HDRLEN);
+
     //todo1: flow label may be different
     //todo2: hop limit may be different
-	//todo3: Now ipv6 doesn't have checksum
+    //todo3: Now ipv6 doesn't have checksum
 
-	/* IPv6 version (4 bits), Traffic class (8 bits), Flow label (20 bits) */
-	ip6Hdr->ip6_flow = htonl ((6 << 28) | (0 << 20) | 0); 
+    /* IPv6 version (4 bits), Traffic class (8 bits), Flow label (20 bits) */
+    ip6Hdr->ip6_flow = htonl ((6 << 28) | (0 << 20) | 0);
 
     /*set payload length*/
     ip6Hdr->ip6_plen = o_iphdr->ip6_plen;
 
 
-    /* Next header (8 bits): 6 for TCP */ 
+    /* Next header (8 bits): 6 for TCP */
     ip6Hdr->ip6_nxt = 6;
-	
-	/* Hop limit (8 bits): default to maximum value */
-	ip6Hdr->ip6_hops = 255;
 
-	/* Convert string to ip6 address */
+    /* Hop limit (8 bits): default to maximum value */
+    ip6Hdr->ip6_hops = 255;
+
+    /* Convert string to ip6 address */
     struct sockaddr_in6 srcaddr, dstaddr;
     //char str[INET_ADDRSTRLEN];
-	inet_pton(AF_INET6, srcIP, &(srcaddr.sin6_addr));
-	inet_pton(AF_INET6, dstIP, &(dstaddr.sin6_addr));
+    inet_pton(AF_INET6, srcIP, &(srcaddr.sin6_addr));
+    inet_pton(AF_INET6, dstIP, &(dstaddr.sin6_addr));
 
-	/* set src/dst address */
-	bcopy(&srcaddr.sin6_addr,&(ip6Hdr->ip6_src), 16);
-	bcopy(&dstaddr.sin6_addr,&(ip6Hdr->ip6_dst), 16);
-   
+    /* set src/dst address */
+    bcopy(&srcaddr.sin6_addr,&(ip6Hdr->ip6_src), 16);
+    bcopy(&dstaddr.sin6_addr,&(ip6Hdr->ip6_dst), 16);
 
-      //Address struct to sendto()
-	  struct sockaddr_in6 addr_in;
 
-	  addr_in.sin6_family = AF_INET6;
-	  addr_in.sin6_port = htons(dstPort);
-	  //addr_in.sin6_addr.s6_addr = inet_addr(dstIP);
+    //Address struct to sendto()
+    struct sockaddr_in6 addr_in;
+
+    addr_in.sin6_family = AF_INET6;
+    addr_in.sin6_port = htons(dstPort);
+    //addr_in.sin6_addr.s6_addr = inet_addr(dstIP);
 
 
 
@@ -271,29 +276,29 @@ int main(int argc, char **argv) {
   ipHdr->saddr = inet_addr(srcIP); //32 bit format of source address
   ipHdr->daddr = inet_addr(dstIP); //32 bit format of source address
 */
-  //Now we can calculate the check sum for the IP header check field
-  //ipHdr->check = csum((unsigned short *) packet, ipHdr->tot_len); 
-  //printf("IP header checksum: %d\n\n\n", ipHdr->check);
+    //Now we can calculate the check sum for the IP header check field
+    //ipHdr->check = csum((unsigned short *) packet, ipHdr->tot_len);
+    //printf("IP header checksum: %d\n\n\n", ipHdr->check);
 
 
-  //Populate tcpHdr
-  tcpHdr->source = htons(srcPort); //16 bit in nbp format of source port
-  tcpHdr->dest = htons(dstPort); //16 bit in nbp format of destination port
-  tcpHdr->seq = 0x0; //32 bit sequence number, initially set to zero
-  tcpHdr->ack_seq = 0x0; //32 bit ack sequence number, depends whether ACK is set or not
-  tcpHdr->doff = 5; //4 bits: 5 x 32-bit words on tcp header
-  tcpHdr->res1 = 0; //4 bits: Not used
-  //tcpHdr->cwr = 0; //Congestion control mechanism
-  //tcpHdr->ece = 0; //Congestion control mechanism
-  tcpHdr->urg = 0; //Urgent flag
-  tcpHdr->ack = 0; //Acknownledge
-  tcpHdr->psh = 0; //Push data immediately
-  tcpHdr->rst = 0; //RST flag
-  tcpHdr->syn = 1; //SYN flag
-  tcpHdr->fin = 0; //Terminates the connection
-  tcpHdr->window = htons(155);//0xFFFF; //16 bit max number of databytes 
-  tcpHdr->check = 0; //16 bit check sum. Can't calculate at this point
-  tcpHdr->urg_ptr = 0; //16 bit indicate the urgent data. Only if URG flag is set
+    //Populate tcpHdr
+    tcpHdr->source = htons(srcPort); //16 bit in nbp format of source port
+    tcpHdr->dest = htons(dstPort); //16 bit in nbp format of destination port
+    tcpHdr->seq = 0x0; //32 bit sequence number, initially set to zero
+    tcpHdr->ack_seq = 0x0; //32 bit ack sequence number, depends whether ACK is set or not
+    tcpHdr->doff = 5; //4 bits: 5 x 32-bit words on tcp header
+    tcpHdr->res1 = 0; //4 bits: Not used
+    //tcpHdr->cwr = 0; //Congestion control mechanism
+    //tcpHdr->ece = 0; //Congestion control mechanism
+    tcpHdr->urg = 0; //Urgent flag
+    tcpHdr->ack = 1; //Acknownledge
+    tcpHdr->psh = 0; //Push data immediately
+    tcpHdr->rst = 0; //RST flag
+    tcpHdr->syn = 0; //SYN flag
+    tcpHdr->fin = 0; //Terminates the connection
+    tcpHdr->window = htons(155);//0xFFFF; //16 bit max number of databytes
+    tcpHdr->check = 0; //16 bit check sum. Can't calculate at this point
+    tcpHdr->urg_ptr = 0; //16 bit indicate the urgent data. Only if URG flag is set
 /*
   tcpHdr->th_sport = htons(srcPort);
   tcpHdr->th_dport = htons(dstPort);
@@ -313,26 +318,26 @@ int main(int argc, char **argv) {
 */
 
 
-  pTCPPacket.srcAddr = (uint32_t)atoi(srcaddr.sin6_addr.s6_addr);
-  pTCPPacket.dstAddr = (uint32_t)atoi(dstaddr.sin6_addr.s6_addr);
-  pTCPPacket.zero = 0; //8 bit always zero
-  pTCPPacket.protocol = IPPROTO_TCP;
-  pTCPPacket.TCP_len = htons(sizeof(struct tcphdr) + strlen(data));
+    pTCPPacket.srcAddr = (uint32_t)atoi(srcaddr.sin6_addr.s6_addr);
+    pTCPPacket.dstAddr = (uint32_t)atoi(dstaddr.sin6_addr.s6_addr);
+    pTCPPacket.zero = 0; //8 bit always zero
+    pTCPPacket.protocol = IPPROTO_TCP;
+    pTCPPacket.TCP_len = htons(sizeof(struct tcphdr) + strlen(data));
 
-  //Populate the pseudo packet
-  pseudo_packet = (char *) malloc((int) (sizeof(struct pseudoTCPPacket) + sizeof(struct tcphdr) + strlen(data)));
-  memset(pseudo_packet, 0, sizeof(struct pseudoTCPPacket) + sizeof(struct tcphdr) + strlen(data));
+    //Populate the pseudo packet
+    pseudo_packet = (char *) malloc((int) (sizeof(struct pseudoTCPPacket) + sizeof(struct tcphdr) + strlen(data)));
+    memset(pseudo_packet, 0, sizeof(struct pseudoTCPPacket) + sizeof(struct tcphdr) + strlen(data));
 
-  //Copy pseudo header
-  memcpy(pseudo_packet, (char *) &pTCPPacket, sizeof(struct pseudoTCPPacket));
-
-
-   
+    //Copy pseudo header
+    memcpy(pseudo_packet, (char *) &pTCPPacket, sizeof(struct pseudoTCPPacket));
 
 
 
-  //Send lots of packets
-  //while(1) { 
+
+
+
+    //Send lots of packets
+    //while(1) {
     //Try to gyess TCP seq
     tcpHdr->seq = htonl(initSeqGuess++);
 
@@ -343,8 +348,8 @@ int main(int argc, char **argv) {
     memcpy(pseudo_packet + sizeof(struct pseudoTCPPacket), tcpHdr, sizeof(struct tcphdr) + strlen(data));
 
     //Set the TCP header's check field
-    tcpHdr->th_sum = (csum((unsigned short *) pseudo_packet, (int) (sizeof(struct pseudoTCPPacket) + 
-          sizeof(struct tcphdr) +  strlen(data))));
+    tcpHdr->th_sum = (csum((unsigned short *) pseudo_packet, (int) (sizeof(struct pseudoTCPPacket) +
+                                                                    sizeof(struct tcphdr) +  strlen(data))));
 
     printf("TCP Checksum: %d\n", (int) tcpHdr->check);
 
@@ -357,20 +362,22 @@ int main(int argc, char **argv) {
       printf("Success! Sent %d bytes.\n", bytes);
     }
 */
-   
-   struct sockaddr_in6 multicastIP;
-   multicastIP.sin6_family   = AF_INET6;
-   multicastIP.sin6_scope_id = my_network_devices_scope_id;
-   //multicastIP.sin6_port     = htons(9999);  // destination port chosen at random
-   inet_pton(AF_INET6, "ff12::bead:cede:deed:feed", &multicastIP.sin6_addr.s6_addr);  
 
+    struct sockaddr_in6 multicastIP;
+    multicastIP.sin6_family   = AF_INET6;
+    multicastIP.sin6_scope_id = my_network_devices_scope_id;
+    //multicastIP.sin6_port     = htons(9999);  // destination port chosen at random
+    inet_pton(AF_INET6, "fe80::39df:fe88:9b43:162f", &multicastIP.sin6_addr.s6_addr);
 
-  int totallen = sizeof(struct ip6_hdr) + sizeof(struct tcphdr) + strlen(data);
-  if((bytes = sendto(sock, packet, totallen, 0, (struct sockaddr *) &multicastIP, sizeof(multicastIP))) < 0) {
-      perror("Error on sendto()");
+    int tcp_hdr_len = tcpHdr->th_off * 4;
+    ip6Hdr->ip6_plen = htons(20);
+
+    int totallen = sizeof(struct ip6_hdr) + sizeof(struct tcphdr) + strlen(data);
+    if((bytes = sendto(sock, packet, totallen, 0, (struct sockaddr *) &multicastIP, sizeof(multicastIP))) < 0) {
+        perror("Error on sendto()");
     }
     else {
-      printf("Success! Sent %d bytes.\n", bytes);
+        printf("Success! Sent %d bytes.\n", bytes);
     }
 
 
@@ -380,7 +387,7 @@ int main(int argc, char **argv) {
 
     //Comment out this break to unleash the beast
     //break;
-  //}
-  
-  return 0;
+    //}
+
+    return 0;
 }
